@@ -9,8 +9,8 @@ from pathlib import Path
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
-from datachannel import setup_datachannel
-from transformators import VideoRecorder
+from python.datachannel import setup_datachannel
+from python.videowriter import VideoRecorder
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler())
