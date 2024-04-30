@@ -5,9 +5,7 @@ import uuid
 import aiohttp_cors
 import os
 
-from pydbus import SystemBus
 from pathlib import Path
-
 from aiohttp import web
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
@@ -88,17 +86,6 @@ async def record_stop(request):
 
 async def power_down(request):
     os.system("shutdown now -h")
-    # # power down raspi
-    # bus = SystemBus()
-    # # proxy = bus.get('org.freedesktop.login1', '/org/freedesktop/login1')
-    # proxy = bus.get('org.freedesktop.login1.power-off', '/org/freedesktop/login1/power-off')
-    # poweroff = proxy.CanPowerOff()
-    
-    # logger.info("Can power off: {}".format(poweroff))
-    # if poweroff  == 'yes':
-    #     proxy.PowerOff(False)  # False for 'NOT interactive'
-    # else:
-    #     logger.info("Unable to power off at this time")
     return web.Response()
 
 async def on_shutdown(application):
