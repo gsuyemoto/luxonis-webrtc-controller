@@ -91,10 +91,9 @@ class VideoRecorder(VideoTransformTrack):
         self.camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
 
         # Encoding choices
-        # dai.VideoEncoderProperties.Profile.H264_MAIN
-        # dai.VideoEncoderProperties.Profile.MJPEG
-        # dai.VideoEncoderProperties.Profile.H265_MAIN
-        self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
+        # self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H264_MAIN)
+        self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.MJPEG)
+        # self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
         # self.encoder.setLossless(True) # Lossless MJPEG, video players usually don't support it
 
         # NN Detection choices
@@ -134,9 +133,12 @@ class VideoRecorder(VideoTransformTrack):
                 # Set up for encoding
                 self.enc_setup = True
                 self.enc_start = time.time()
-                self.enc_container = av.open('video.mp4', 'w')
-                enc_stream = self.enc_container.add_stream("hevc", rate=30)
+                self.enc_container = av.open('/media/gary/Samsung USB/video.mp4', 'w')
+                # enc_stream = self.enc_container.add_stream("hevc", rate=30)
+                # enc_stream = self.enc_container.add_stream("h264", rate=30)
+                enc_stream = self.enc_container.add_stream("mjpeg", rate=30)
                 enc_stream.time_base = Fraction(1, 1000 * 1000) # Microseconds
+                enc_stream.pix_fmt = "yuvj420p"
 
             while self.qRgbEnc.has():
                 data = self.qRgbEnc.get().getData() # np.array
