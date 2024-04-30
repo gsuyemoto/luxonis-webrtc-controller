@@ -2,7 +2,8 @@
 Description=HTTP that provides WebRTC controller access to Luxonis camera
 
 [Service]
-User=gary
+# Default user is root. Declaring user 'gary' for the service actually prevents main.py from making system call to shutdown the device.
+# User=gary
 WorkingDirectory=/home/gary/Luxonis/luxonis-webrtc-controller
 ExecStart=/home/gary/Luxonis/venv/bin/python main.py
 # optional items below

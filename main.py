@@ -3,7 +3,9 @@ import json
 import logging
 import uuid
 import aiohttp_cors
+import os
 
+from pydbus import SystemBus
 from pathlib import Path
 
 from aiohttp import web
@@ -11,7 +13,6 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from python.datachannel import setup_datachannel
 from python.videowriter import VideoRecorder
-from pydbus import SystemBus
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler())
@@ -85,18 +86,26 @@ async def record_stop(request):
     request.app.video_transform.is_recording = False
     return web.Response()
 
+async def power_down(request):
+    os.system("shutdown now -h")
+    # # power down raspi
+    # bus = SystemBus()
+    # # proxy = bus.get('org.freedesktop.login1', '/org/freedesktop/login1')
+    # proxy = bus.get('org.freedesktop.login1.power-off', '/org/freedesktop/login1/power-off')
+    # poweroff = proxy.CanPowerOff()
+    
+    # logger.info("Can power off: {}".format(poweroff))
+    # if poweroff  == 'yes':
+    #     proxy.PowerOff(False)  # False for 'NOT interactive'
+    # else:
+    #     logger.info("Unable to power off at this time")
+    return web.Response()
+
 async def on_shutdown(application):
     # close peer connections
     coroutines = [pc.close() for pc in application.pcs]
     await asyncio.gather(*coroutines)
     application.pcs.clear()
-
-async def power_down(application):
-    # power down raspi
-    bus = SystemBus()
-    proxy = bus.get('org.freedesktop.login1', '/org/freedesktop/login1')
-    if proxy.CanPowerOff() == 'yes':
-        proxy.PowerOff(False)  # False for 'NOT interactive'
 
 def init_app(application):
     setattr(application, 'pcs', set())
