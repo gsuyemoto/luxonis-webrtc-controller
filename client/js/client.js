@@ -51,7 +51,7 @@ class WebRTC {
                 body: JSON.stringify({
                     sdp: this.pc.localDescription.sdp,
                     type: this.pc.localDescription.type,
-                    options: Object.fromEntries(new FormData(document.getElementById('options-form')))
+                    options: {}
                 }),
                 headers: {
                     'Content-Type': 'application/json'
@@ -79,9 +79,7 @@ class WebRTC {
         if (this.pc.getTransceivers) {
             this.pc.getTransceivers().forEach(transceiver => transceiver.stop && transceiver.stop())
         }
-
         this.pc.getSenders().forEach(sender => sender.track && sender.track.stop());
-
         this.pc.close();
     }
 
@@ -106,17 +104,17 @@ let webrtcInstance;
 
 function onMessage(evt) {
     const action = JSON.parse(evt.data);
-    console.log(action)
+    document.getElementById('status').value += "\n" + action;
 }
 
 function start() {
-    console.log("Starting stream..");
+    document.getElementById('status').value += "\nStarting stream..";
     
     webrtcInstance = new WebRTC();
     dataChannel = webrtcInstance.createDataChannel(
         'pingChannel',
-        () => console.log("[DC] closed"),
-        () => console.log("[DC] opened"),
+        () => document.getElementById('status').value += "\n[DC] closed",
+        () => document.getElementById('status').value += "\n[DC] opened",
         onMessage,
     );
     webrtcInstance.addMediaHandles(
@@ -127,7 +125,7 @@ function start() {
 }
 
 function stop() {
-    console.log("Stopping stream...");
+    document.getElementById('status').value += "\nStopping stream..";
 
     if(dataChannel) {
         dataChannel.send(JSON.stringify({
@@ -138,11 +136,19 @@ function stop() {
 }
 
 async function startRecording() {
-  const response = await fetch("/record_start");
-  console.log(response);
+    document.getElementById('status').value += "\nStart recording...";
+    const response = await fetch("/record_start");
+    console.log(response);
 }
 
 async function stopRecording() {
-  const response = await fetch("/record_stop");
-  console.log(response);
+    document.getElementById('status').value += "\nStop recording...";
+    const response = await fetch("/record_stop");
+    console.log(response);
+}
+
+async function powerDown() {
+    document.getElementById('status').value += "\nPowering down...";
+    const response = await fetch("/power_down");
+    console.log(response);
 }

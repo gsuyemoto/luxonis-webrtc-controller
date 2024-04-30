@@ -11,6 +11,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 
 from python.datachannel import setup_datachannel
 from python.videowriter import VideoRecorder
+from pydbus import SystemBus
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler())
@@ -35,46 +36,8 @@ async def javascript(request):
         return web.Response(content_type="application/javascript", text=f.read())
 
 
-class OptionsWrapper:
-    def __init__(self, raw_options):
-        self.raw_options = raw_options
-
-    @property
-    def camera_type(self):
-        return self.raw_options.get('camera_type', 'rgb')
-
-    @property
-    def width(self):
-        return int(self.raw_options.get('cam_width', 500))
-
-    @property
-    def height(self):
-        return int(self.raw_options.get('cam_height', 374))
-
-    @property
-    def nn(self):
-        return self.raw_options.get('nn_model', '')
-
-    @property
-    def mono_camera_resolution(self):
-        return self.raw_options.get('mono_camera_resolution', 'THE_400_P')
-
-    @property
-    def median_filter(self):
-        return self.raw_options.get('median_filter', 'KERNEL_7x7')
-    
-    @property
-    def subpixel(self):
-        return bool(self.raw_options.get('subpixel', ''))
-
-    @property
-    def extended_disparity(self):
-        return bool(self.raw_options.get('extended_disparity', ''))
-
-
 async def offer(request):
     params = await request.json()
-    options = OptionsWrapper(params.get("options", dict()))
     rtc_offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
     pc = RTCPeerConnection()
@@ -89,9 +52,7 @@ async def offer(request):
     setup_datachannel(pc, pc_id, request.app)
     for transceiver in pc.getTransceivers():
         if transceiver.kind == "video":
-            # request.app.video_transforms[pc_id] = VideoRecorder(request.app, pc_id, options)
-            # pc.addTrack(request.app.video_transforms[pc_id])
-            request.app.video_transform = VideoRecorder(request.app, pc_id, options)
+            request.app.video_transform = VideoRecorder(request.app, pc_id)
             pc.addTrack(request.app.video_transform)
 
 
@@ -130,13 +91,17 @@ async def on_shutdown(application):
     await asyncio.gather(*coroutines)
     application.pcs.clear()
 
+async def power_down(application):
+    # power down raspi
+    bus = SystemBus()
+    proxy = bus.get('org.freedesktop.login1', '/org/freedesktop/login1')
+    if proxy.CanPowerOff() == 'yes':
+        proxy.PowerOff(False)  # False for 'NOT interactive'
 
 def init_app(application):
     setattr(application, 'pcs', set())
     setattr(application, 'pcs_datachannels', {})
     setattr(application, 'video_transforms', {})
-
-
 
 if __name__ == "__main__":
     app = web.Application()
@@ -155,4 +120,5 @@ if __name__ == "__main__":
     cors.add(app.router.add_post("/offer", offer))
     cors.add(app.router.add_get("/record_start", record_start))
     cors.add(app.router.add_get("/record_stop", record_stop))
+    cors.add(app.router.add_get("/power_down", power_down))
     web.run_app(app, access_log=None, port=8080)

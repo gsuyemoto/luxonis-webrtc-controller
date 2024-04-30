@@ -11,13 +11,15 @@ from fractions import Fraction
 import time
 import sys
 
+PREVIEW_WIDTH = 500
+PREVIEW_HEIGHT = 374
+
 class VideoTransformTrack(VideoStreamTrack):
-    def __init__(self, application, pc_id, options):
+    def __init__(self, application, pc_id):
         super().__init__()  # don't forget this!
         self.dummy = False
         self.application = application
         self.pc_id = pc_id
-        self.options = options
         self.frame = None
 
     async def get_frame(self):
@@ -31,7 +33,7 @@ class VideoTransformTrack(VideoStreamTrack):
         return new_frame
 
     async def dummy_recv(self):
-        frame = np.zeros((self.options.height, self.options.width, 3), np.uint8)
+        frame = np.zeros((500, 375, 3), np.uint8)
         y, x = frame.shape[0] / 2, frame.shape[1] / 2
         left, top, right, bottom = int(x - 50), int(y - 30), int(x + 50), int(y + 30)
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), cv2.FILLED)
@@ -59,11 +61,11 @@ def frameNorm(frame, bbox):
 
 
 class VideoRecorder(VideoTransformTrack):
-    def __init__(self, application, pc_id, options):
-        super().__init__(application, pc_id, options)
+    def __init__(self, application, pc_id):
+        super().__init__(application, pc_id)
 
         self.is_recording = False
-        self.frame = np.zeros((self.options.height, self.options.width, 3), np.uint8)
+        self.frame = np.zeros((PREVIEW_HEIGHT, PREVIEW_WIDTH, 3), np.uint8)
         self.frame[:] = (0, 0, 0)
         self.detections = []
 
@@ -86,7 +88,7 @@ class VideoRecorder(VideoTransformTrack):
         # ---------- Properties
         self.camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         # self.camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
-        self.camRgb.setPreviewSize(self.options.width, self.options.height)
+        self.camRgb.setPreviewSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
         self.camRgb.setInterleaved(False)
         self.camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
 
