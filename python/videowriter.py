@@ -135,7 +135,7 @@ class VideoRecorder(VideoTransformTrack):
                 # Set up for encoding
                 self.enc_setup = True
                 self.enc_start = time.time()
-                self.enc_container = av.open('/media/gary/Samsung USB/video.mp4', 'w')
+                self.enc_container = av.open('/media/gary/usb_drive/video.mp4', 'w')
                 # enc_stream = self.enc_container.add_stream("hevc", rate=30)
                 # enc_stream = self.enc_container.add_stream("h264", rate=30)
                 enc_stream = self.enc_container.add_stream("mjpeg", rate=30)

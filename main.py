@@ -100,6 +100,9 @@ def init_app(application):
     setattr(application, 'video_transforms', {})
 
 if __name__ == "__main__":
+    # Ensure usb drive is mounted
+    os.system("mount /dev/sda1 /media/gary/usb_drive")
+
     app = web.Application()
     init_app(app)
     app.on_shutdown.append(on_shutdown)
