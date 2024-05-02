@@ -135,6 +135,12 @@ function stop() {
     setTimeout(() => webrtcInstance.stop(), 100);
 }
 
+function confirmPowerDown() {
+    if (confirm("Confirm to power down the device!")) {
+        powerDown();
+    }
+}
+
 async function startRecording() {
     document.getElementById('status').value += "\nStart recording...";
     const response = await fetch("/record_start");
