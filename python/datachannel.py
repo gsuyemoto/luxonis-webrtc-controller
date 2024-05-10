@@ -24,6 +24,12 @@ def setup_datachannel(pc, pc_id, app):
                         "payload": "Channel is closing..."
                     }))
                     channel.close()
+                elif data['type'].upper() == 'STITCH':
+                    app.video_transform.is_stitch = True
+                    channel.send(json.dumps({
+                        "type": "STITCH",
+                        "payload": "Stitched images!"
+                    }))
                 else:
                     channel.send(json.dumps({
                         "type": "BAD_REQUEST",

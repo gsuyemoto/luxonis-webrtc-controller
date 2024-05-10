@@ -7,12 +7,14 @@ import blobconverter
 
 from aiortc import VideoStreamTrack
 from fractions import Fraction
+from python.stitching import Stitcher
 
 import time
 import sys
 
-PREVIEW_WIDTH = 500
-PREVIEW_HEIGHT = 374
+PREVIEW_WIDTH = 600
+PREVIEW_HEIGHT = 400
+FPS = 28
 
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, application, pc_id):
@@ -22,135 +24,131 @@ class VideoTransformTrack(VideoStreamTrack):
         self.pc_id = pc_id
         self.frame = None
 
-    async def get_frame(self):
-        raise NotImplementedError()
+    # Has to receive a frame with data, will need to block if frame with data hasn't been received yet
+    async def recv(self):
+        frame = await self.get_frame()
 
-    async def return_frame(self, frame):
+        # print(f"Frame size: {frame.shape}")
+
         pts, time_base = await self.next_timestamp()
         new_frame = av.VideoFrame.from_ndarray(frame, format="bgr24")
         new_frame.pts = pts
         new_frame.time_base = time_base
         return new_frame
 
-    async def dummy_recv(self):
-        frame = np.zeros((500, 375, 3), np.uint8)
-        y, x = frame.shape[0] / 2, frame.shape[1] / 2
-        left, top, right, bottom = int(x - 50), int(y - 30), int(x + 50), int(y + 30)
-        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), cv2.FILLED)
-        cv2.putText(frame, "ERROR", (left, int((bottom + top) / 2 + 10)), cv2.FONT_HERSHEY_DUPLEX, 1.0,
-                    (255, 255, 255), 1)
-        return await self.return_frame(frame)
-
-    async def recv(self):
-        if self.dummy:
-            return await self.dummy_recv()
-        try:
-            frame = await self.get_frame()
-            return await self.return_frame(frame)
-        except:
-            print(traceback.format_exc())
-            print('Switching to dummy mode...')
-            self.dummy = True
-            return await self.dummy_recv()
-
-
-def frameNorm(frame, bbox):
-    normVals = np.full(len(bbox), frame.shape[0])
-    normVals[::2] = frame.shape[1]
-    return (np.clip(np.array(bbox), 0, 1) * normVals).astype(int)
-
-
 class VideoRecorder(VideoTransformTrack):
     def __init__(self, application, pc_id):
         super().__init__(application, pc_id)
 
         self.is_recording = False
+        self.is_stitch = False
+
         self.frame = np.zeros((PREVIEW_HEIGHT, PREVIEW_WIDTH, 3), np.uint8)
         self.frame[:] = (0, 0, 0)
-        self.detections = []
 
+        self.stitcher = None
+        self.translateX = 0
+        self.translateY = 0
+
+        self.cam1, self.q1 = self.create_cam("18443010915D2D1300")
+        self.cam2, self.q2 = self.create_cam("18443010D13E411300")
+ 
+    def create_recorder(self, cam, xout):
+        self.enc_container = av.open('video.mp4', mode='w')
+        codec = av.CodecContext.create('hevc', 'w')
+        self.stream = self.enc_container.add_stream('hevc')
+        self.stream.width = 4032
+        self.stream.height = 3040
+        self.stream.time_base = Fraction(1, 1000 * 1000)
+
+        """
+        We have to use ImageManip, as ColorCamera.video can output up to 4K.
+        Workaround is to use ColorCamera.isp, and convert it to NV12
+        """
+        imageManip = pipeline.create(dai.node.ImageManip)
+        # YUV420 -> NV12 (required by VideoEncoder)
+        imageManip.initialConfig.setFrameType(dai.RawImgFrame.Type.NV12)
+        # Width must be multiple of 32, height multiple of 8 for H26x encoder
+        imageManip.initialConfig.setResize(4032, 3040)
+        imageManip.setMaxOutputFrameSize(18495360)
+        cam.isp.link(imageManip.inputImage)
+        
+        # Properties
+        videoEnc = pipeline.create(dai.node.VideoEncoder)
+        videoEnc.setDefaultProfilePreset(FPS, dai.VideoEncoderProperties.Profile.H265_MAIN)
+        imageManip.out.link(videoEnc.input)
+
+        videoEnc.bitstream.link(xout.input)
+
+    def create_cam(self, mxid):
         # ---------- Create pipeline
-        self.pipeline = dai.Pipeline()
+        pipeline = dai.Pipeline()
 
+        # Linking
+        xout = pipeline.create(dai.node.XLinkOut)
+        xout.setStreamName('bitstream')
+        
         # ---------- Define sources and outputs
-        self.encoder = self.pipeline.create(dai.node.VideoEncoder)
-        self.camRgb = self.pipeline.create(dai.node.ColorCamera)
-        # self.detection = self.pipeline.create(dai.node.MobileNetDetectionNetwork)
+        cam = pipeline.create(dai.node.ColorCamera)
+        cam.setFps(FPS)
+        # cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP) # (4056, 3040)
+        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        cam.setPreviewSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+        cam.setInterleaved(False)
+        cam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+        cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
+        cam.preview.link(xout.input)
 
-        self.xoutRgb = self.pipeline.create(dai.node.XLinkOut)
-        self.xoutEnc = self.pipeline.create(dai.node.XLinkOut)
-        # self.xoutNN = self.pipeline.create(dai.nodeXLinkOut)
+        info = dai.DeviceInfo(mxid)
+        device = dai.Device(pipeline, info)
 
-        self.xoutRgb.setStreamName("rgb")
-        self.xoutEnc.setStreamName("enc")
-        # self.xoutNN.setStreamName("nn")
+        q = device.getOutputQueue(name="bitstream", maxSize=4, blocking=False)
 
-        # ---------- Properties
-        self.camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        # self.camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
-        self.camRgb.setPreviewSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
-        self.camRgb.setInterleaved(False)
-        self.camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
+        print(f"Camera: {device}")
+        print(f"Queue: {q}")
 
-        # Encoding choices
-        # self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H264_MAIN)
-        self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.MJPEG)
-        # self.encoder.setDefaultProfilePreset(30, dai.VideoEncoderProperties.Profile.H265_MAIN)
-        # self.encoder.setLossless(True) # Lossless MJPEG, video players usually don't support it
-
-        # NN Detection choices
-        # self.detection.setConfidenceThreshold(0.5)
-        # self.detection.setBlobPath(nnPath)
-        # self.detection.setNumInferenceThreads(2)
-        # self.detection.input.setBlocking(False)
-        # self.detection.setBlobPath(blobconverter.from_zoo(options.nn, shaves=6))
-
-        # ---------- Linking
-        self.camRgb.video.link(self.encoder.input)
-        self.camRgb.preview.link(self.xoutRgb.input)
-        # self.camRgb.preview.link(self.detection.input)
-        self.encoder.bitstream.link(self.xoutEnc.input)
-        # self.detection.out.link(self.xoutNN.input)
-
-        self.nn = None
-
-        # ---------- Queues
-        self.device = dai.Device(self.pipeline)
-        self.qRgb = self.device.getOutputQueue(name="rgb", maxSize=1, blocking=False)
-        # self.qDet = self.device.getOutputQueue(name="nn", maxSize=4, blocking=False)
-        self.qRgbEnc = self.device.getOutputQueue(name="enc", maxSize=30, blocking=False)
-
-        self.enc_setup = False
-        self.device.startPipeline()
-
-        print("VideoRecorder initialized")
+        return device, q
         
     async def get_frame(self):
-        frame = self.qRgb.tryGet()
-        if frame is not None:
-            self.frame = frame.getCvFrame()
+
+        frame1 = self.q2.get()
+        frame2 = self.q1.get()
+
+        img1 = frame1.getCvFrame()
+        img2 = frame2.getCvFrame()
+
+        if img1 is None or img2 is None:
+            print("Empty image after frame to opencv conversion!!!!")
+            return None
+
+        M = np.float32([
+            [1, 0, self.translateX],
+            [0, 1, self.translateY]
+        ])
+
+        if self.translateX != 0 or self.translateY != 0:
+            img2 = cv2.warpAffine(img2, M, (WIDTH, HEIGHT))
         
-        if self.is_recording:
-            if self.enc_setup is not True:
-                # Set up for encoding
-                self.enc_setup = True
-                self.enc_start = time.time()
-                self.enc_container = av.open('/media/gary/usb_drive/video.mp4', 'w')
-                # enc_stream = self.enc_container.add_stream("hevc", rate=30)
-                # enc_stream = self.enc_container.add_stream("h264", rate=30)
-                enc_stream = self.enc_container.add_stream("mjpeg", rate=30)
-                enc_stream.time_base = Fraction(1, 1000 * 1000) # Microseconds
-                enc_stream.pix_fmt = "yuvj420p"
+        if self.is_stitch:
+            self.stitcher = Stitcher([img1, img2])
+            self.is_stitch = False
 
-            while self.qRgbEnc.has():
-                data = self.qRgbEnc.get().getData() # np.array
-                packet = av.Packet(data) # Create new packet with byte array
+        if self.stitcher is not None:
+            result = self.stitcher.warp([img1, img2])
+        else:
+            result = np.concatenate((img1, img2), axis=1)        
             
-                # Set frame timestamp
-                packet.pts = int((time.time() - self.enc_start) * 1000 * 1000)
-                self.enc_container.mux_one(packet) # Mux the Packet into container
+        # if self.is_recording:
+            # start_ts = frame1.getTimestampDevice()
+        #     packet = av.Packet(frame1.getData())
+    
+        #     ts = int((frame1.getTimestampDevice() - start_ts).total_seconds() * 1e6)  # To microsec
+        #     packet.dts = ts + 1  # +1 to avoid zero dts
+        #     packet.pts = ts + 1
+        #     packet.stream = self.stream
+        #     self.enc_container.mux_one(packet)  # Mux the Packet into container
 
-        return self.frame
+        return result
 
     def stop(self):
         print("VideoRecorder stop...")
@@ -158,4 +156,7 @@ class VideoRecorder(VideoTransformTrack):
 
         # Clean up
         self.enc_container.close()
-        del self.device
+        self.cam1.close()
+        self.cam2.close()
+        del self.cam1
+        del self.cam2

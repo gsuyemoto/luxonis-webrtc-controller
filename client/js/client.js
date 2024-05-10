@@ -135,6 +135,16 @@ function stop() {
     setTimeout(() => webrtcInstance.stop(), 100);
 }
 
+function sendMessage(msg) {
+    document.getElementById('status').value += "\n" + msg + "...";
+    
+    if(dataChannel) {
+        dataChannel.send(JSON.stringify({
+            'type': msg
+        }))
+    }
+}
+
 function confirmPowerDown() {
     if (confirm("Confirm to power down the device!")) {
         powerDown();

@@ -77,11 +77,12 @@
 <button class="btn1" id="stop" onclick="stop()">Stop Stream</button></br>
 <button class="btn2" id="record_start" onclick="startRecording()">Start Record</button>
 <button class="btn2" id="record_stop" onclick="stopRecording()">Stop Record</button></br>
+<button class="btn3" id="stich" onclick="sendMessage('STITCH')">Stitch</button>
 <button class="btn3" id="power_down" onclick="confirmPowerDown()">Power Down</button>
 </div>
 
 <textarea id="status" cols="80" rows="10">No messages yet...</textarea>
-<video width="500" height="374" id="video" autoplay="true" playsinline="true"></video>
+<video width="1200" height="400" id="video" autoplay="true" playsinline="true"></video>
 
 <script>
 function sendMessage(msg) {
