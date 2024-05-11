@@ -50,44 +50,14 @@ class VideoRecorder(VideoTransformTrack):
         self.stitcher = None
         self.translateX = 0
         self.translateY = 0
+        self.start_ts = None
 
-        self.cam1, self.q1 = self.create_cam("18443010915D2D1300")
-        self.cam2, self.q2 = self.create_cam("18443010D13E411300")
- 
-    def create_recorder(self, cam, xout):
-        self.enc_container = av.open('video.mp4', mode='w')
-        codec = av.CodecContext.create('hevc', 'w')
-        self.stream = self.enc_container.add_stream('hevc')
-        self.stream.width = 4032
-        self.stream.height = 3040
-        self.stream.time_base = Fraction(1, 1000 * 1000)
+        self.cam1, self.q1, self.recorder1, self.qEncoded1, self.encStream1 = self.create_cam("18443010915D2D1300", "cam1")
+        self.cam2, self.q2, self.recorder2, self.qEncoded2, self.encStream2 = self.create_cam("18443010D13E411300", "cam2")
 
-        """
-        We have to use ImageManip, as ColorCamera.video can output up to 4K.
-        Workaround is to use ColorCamera.isp, and convert it to NV12
-        """
-        imageManip = pipeline.create(dai.node.ImageManip)
-        # YUV420 -> NV12 (required by VideoEncoder)
-        imageManip.initialConfig.setFrameType(dai.RawImgFrame.Type.NV12)
-        # Width must be multiple of 32, height multiple of 8 for H26x encoder
-        imageManip.initialConfig.setResize(4032, 3040)
-        imageManip.setMaxOutputFrameSize(18495360)
-        cam.isp.link(imageManip.inputImage)
-        
-        # Properties
-        videoEnc = pipeline.create(dai.node.VideoEncoder)
-        videoEnc.setDefaultProfilePreset(FPS, dai.VideoEncoderProperties.Profile.H265_MAIN)
-        imageManip.out.link(videoEnc.input)
-
-        videoEnc.bitstream.link(xout.input)
-
-    def create_cam(self, mxid):
+    def create_cam(self, mxid, name):
         # ---------- Create pipeline
         pipeline = dai.Pipeline()
-
-        # Linking
-        xout = pipeline.create(dai.node.XLinkOut)
-        xout.setStreamName('bitstream')
         
         # ---------- Define sources and outputs
         cam = pipeline.create(dai.node.ColorCamera)
@@ -98,17 +68,73 @@ class VideoRecorder(VideoTransformTrack):
         cam.setInterleaved(False)
         cam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
         cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
-        cam.preview.link(xout.input)
 
+        # Set up recording
+        recorder = av.open(name + '.mp4', mode='w')
+        codec = av.CodecContext.create('mjpeg', 'w')
+        # codec = av.CodecContext.create('hevc', 'w')
+        # stream = recorder.add_stream('hevc')
+        # stream = recorder.add_stream('h264')
+        stream = recorder.add_stream('mjpeg')
+        stream.width = 4032
+        stream.height = 3040
+        stream.time_base = Fraction(1, 1000 * 1000)
+        stream.pix_fmt = "yuvj420p" # only for MJPEG
+        
+        """
+        We have to use ImageManip, as ColorCamera.video can output up to 4K.
+        Workaround is to use ColorCamera.isp, and convert it to NV12
+        """
+        imageManip = pipeline.create(dai.node.ImageManip)
+        # YUV420 -> NV12 (required by VideoEncoder)
+        imageManip.initialConfig.setFrameType(dai.RawImgFrame.Type.NV12)
+        # Width must be multiple of 32, height multiple of 8 for H26x encoder
+        imageManip.initialConfig.setResize(4032, 3040)
+        imageManip.setMaxOutputFrameSize(18495360)
+        
+        # Encoder
+        videoEnc = pipeline.create(dai.node.VideoEncoder)
+        videoEnc.setDefaultProfilePreset(FPS, dai.VideoEncoderProperties.Profile.MJPEG)
+        # Higher quality would produce huge files
+        videoEnc.setQuality(60)
+        # videoEnc.setDefaultProfilePreset(FPS, dai.VideoEncoderProperties.Profile.H265_MAIN)
+
+        """
+        LINKING -- MAKE SURE THIS PART IS CORRECT! FAILURE IS HARD TO DETECT
+        """
+        # XLinkOuts
+        outPreview = pipeline.create(dai.node.XLinkOut)
+        outEncoded = pipeline.create(dai.node.XLinkOut)
+        outPreview.setStreamName('preview')
+        outEncoded.setStreamName('encoded')
+        
+        print(f"Preview: {outPreview}")
+        print(f"Encoded: {outEncoded}")
+
+        # Preview stream
+        cam.preview.link(outPreview.input)
+        # Encoded stream
+        # CAM ISP --> IMAGE MANIPULATOR --> VIDEO ENCODER --> XLINKOUT (HOST)
+        # cam.isp.link(imageManip.inputImage)
+        # imageManip.out.link(videoEnc.input)
+        cam.video.link(videoEnc.input)
+        videoEnc.bitstream.link(outEncoded.input)
+
+        # Get device by ID
         info = dai.DeviceInfo(mxid)
         device = dai.Device(pipeline, info)
 
-        q = device.getOutputQueue(name="bitstream", maxSize=4, blocking=False)
-
+        # Output queue
+        qOutPreview = device.getOutputQueue(name="preview", maxSize=4, blocking=False)
+        qOutEncoded = device.getOutputQueue(name="encoded", maxSize=30, blocking=False)
+        
         print(f"Camera: {device}")
-        print(f"Queue: {q}")
+        print(f"Queue: {qOutPreview}")
+        print(f"Recorder: {recorder}")
+        print(f"Queue Encoded: {qOutEncoded}")
+        print(f"Stream: {stream}")
 
-        return device, q
+        return device, qOutPreview, recorder, qOutEncoded, stream
         
     async def get_frame(self):
         if self.is_toggle:
@@ -142,15 +168,30 @@ class VideoRecorder(VideoTransformTrack):
         else:
             result = np.concatenate((img1, img2), axis=1)        
             
-        if self.is_recording:
-            start_ts = frame1.getTimestampDevice()
-            packet = av.Packet(result.getData())
+        if self.is_recording and self.qEncoded1.has() and self.qEncoded2.has():
+            print("Recording...")
+            if self.is_toggle:
+                encoded1 = self.qEncoded1.tryGet()
+                encoded2 = self.qEncoded2.tryGet()
+            else:
+                encoded1 = self.qEncoded2.tryGet()
+                encoded2 = self.qEncoded1.tryGet()
+            
+            if self.start_ts is None:
+                self.start_ts = encoded1.getTimestampDevice()
 
-            ts = int((frame1.getTimestampDevice() - start_ts).total_seconds() * 1e6)  # To microsec
-            packet.dts = ts + 1  # +1 to avoid zero dts
-            packet.pts = ts + 1
-            packet.stream = self.stream
-            self.enc_container.mux_one(packet)  # Mux the Packet into container
+            ts = int((encoded1.getTimestampDevice() - self.start_ts).total_seconds() * 1e6)  # To microsec
+            packet1 = av.Packet(encoded1.getData())
+            packet1.dts = ts + 1  # +1 to avoid zero dts
+            packet1.pts = ts + 1
+            packet1.stream = self.encStream1
+            self.recorder1.mux_one(packet1)  # Mux the Packet into container
+
+            packet2 = av.Packet(encoded2.getData())
+            packet2.dts = ts + 1  # +1 to avoid zero dts
+            packet2.pts = ts + 1
+            packet2.stream = self.encStream2
+            self.recorder2.mux_one(packet2)  # Mux the Packet into container
 
         return result
 
@@ -159,7 +200,8 @@ class VideoRecorder(VideoTransformTrack):
         super().stop()
 
         # Clean up
-        self.enc_container.close()
+        self.recorder1.close()
+        self.recorder2.close()
         self.cam1.close()
         self.cam2.close()
         del self.cam1
