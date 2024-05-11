@@ -14,7 +14,9 @@ import sys
 
 PREVIEW_WIDTH = 600
 PREVIEW_HEIGHT = 400
-FPS = 28
+FPS = 30
+# FPS = 28
+# FPS = 20
 
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, application, pc_id):
@@ -62,8 +64,9 @@ class VideoRecorder(VideoTransformTrack):
         # ---------- Define sources and outputs
         cam = pipeline.create(dai.node.ColorCamera)
         cam.setFps(FPS)
+        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_4_K)
         # cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_12_MP) # (4056, 3040)
-        cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+        # cam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         cam.setPreviewSize(PREVIEW_WIDTH, PREVIEW_HEIGHT)
         cam.setInterleaved(False)
         cam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
