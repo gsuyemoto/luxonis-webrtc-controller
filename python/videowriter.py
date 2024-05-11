@@ -42,6 +42,7 @@ class VideoRecorder(VideoTransformTrack):
 
         self.is_recording = False
         self.is_stitch = False
+        self.is_toggle = True
 
         self.frame = np.zeros((PREVIEW_HEIGHT, PREVIEW_WIDTH, 3), np.uint8)
         self.frame[:] = (0, 0, 0)
@@ -110,9 +111,12 @@ class VideoRecorder(VideoTransformTrack):
         return device, q
         
     async def get_frame(self):
-
-        frame1 = self.q2.get()
-        frame2 = self.q1.get()
+        if self.is_toggle:
+            frame1 = self.q1.get()
+            frame2 = self.q2.get()
+        else:
+            frame1 = self.q2.get()
+            frame2 = self.q1.get()
 
         img1 = frame1.getCvFrame()
         img2 = frame2.getCvFrame()
@@ -138,15 +142,15 @@ class VideoRecorder(VideoTransformTrack):
         else:
             result = np.concatenate((img1, img2), axis=1)        
             
-        # if self.is_recording:
-            # start_ts = frame1.getTimestampDevice()
-        #     packet = av.Packet(frame1.getData())
-    
-        #     ts = int((frame1.getTimestampDevice() - start_ts).total_seconds() * 1e6)  # To microsec
-        #     packet.dts = ts + 1  # +1 to avoid zero dts
-        #     packet.pts = ts + 1
-        #     packet.stream = self.stream
-        #     self.enc_container.mux_one(packet)  # Mux the Packet into container
+        if self.is_recording:
+            start_ts = frame1.getTimestampDevice()
+            packet = av.Packet(result.getData())
+
+            ts = int((frame1.getTimestampDevice() - start_ts).total_seconds() * 1e6)  # To microsec
+            packet.dts = ts + 1  # +1 to avoid zero dts
+            packet.pts = ts + 1
+            packet.stream = self.stream
+            self.enc_container.mux_one(packet)  # Mux the Packet into container
 
         return result
 

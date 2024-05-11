@@ -2,7 +2,7 @@ import json
 import urllib.parse
 from json import JSONDecodeError
 import traceback
-
+import os
 
 def setup_datachannel(pc, pc_id, app):
     @pc.on("datachannel")
@@ -29,6 +29,34 @@ def setup_datachannel(pc, pc_id, app):
                     channel.send(json.dumps({
                         "type": "STITCH",
                         "payload": "Stitched images!"
+                    }))
+                elif data['type'].upper() == 'TOGGLE':
+                    toggle = app.video_transform.is_toggle
+                    app.video_transform.is_toggle = not toggle
+                    channel.send(json.dumps({
+                        "type": "TOGGLE",
+                        "payload": "Toggle images!"
+                    }))
+                elif data['type'].upper() == 'RECORD_START':
+                    app.video_transform.is_recording = True
+                    channel.send(json.dumps({
+                        "type": "RECORD_START",
+                        "payload": "Start recording video!"
+                    }))
+                elif data['type'].upper() == 'RECORD_STOP':
+                    app.video_transform.is_recording = False
+                    channel.send(json.dumps({
+                        "type": "RECORD_STOP",
+                        "payload": "Stop recording video!"
+                    }))
+                elif data['type'].upper() == 'SHUTDOWN':
+                    if "raspbery" in os.uname: 
+                        request.app.shutdown()
+                        os.system("shutdown now -h")
+
+                    channel.send(json.dumps({
+                        "type": "SHUTDOWN",
+                        "payload": "Shutdown Raspi!"
                     }))
                 else:
                     channel.send(json.dumps({

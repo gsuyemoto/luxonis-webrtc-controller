@@ -76,17 +76,9 @@ async def offer(request):
         }),
     )
 
-async def record_start(request):
-    request.app.video_transform.is_recording = True
-    return web.Response()
-
-async def record_stop(request):
-    request.app.video_transform.is_recording = False
-    return web.Response()
-
-async def power_down(request):
-    os.system("shutdown now -h")
-    return web.Response()
+async def stop_server(request):
+    print("Attempting to stop server...")
+    exit(1)
 
 async def on_shutdown(application):
     # close peer connections
@@ -117,7 +109,5 @@ if __name__ == "__main__":
     })
     cors.add(app.router.add_get("/test", test))
     cors.add(app.router.add_post("/offer", offer))
-    cors.add(app.router.add_get("/record_start", record_start))
-    cors.add(app.router.add_get("/record_stop", record_stop))
-    cors.add(app.router.add_get("/power_down", power_down))
+    cors.add(app.router.add_get("/stop", stop_server))
     web.run_app(app, access_log=None, port=8080)

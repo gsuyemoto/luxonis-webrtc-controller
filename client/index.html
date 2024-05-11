@@ -73,20 +73,28 @@
 </head>
 <body>
 <div>
-<button class="btn1" id="start" onclick="start()">Start Stream</button>
-<button class="btn1" id="stop" onclick="stop()">Stop Stream</button></br>
-<button class="btn2" id="record_start" onclick="startRecording()">Start Record</button>
-<button class="btn2" id="record_stop" onclick="stopRecording()">Stop Record</button></br>
-<button class="btn3" id="stich" onclick="sendMessage('STITCH')">Stitch</button>
-<button class="btn3" id="power_down" onclick="confirmPowerDown()">Power Down</button>
+<button class="btn1" id="btn_status" onclick="toggleStatus()">Status</button>
+<button class="btn1" id="btn_start" onclick="stream_start()">Start Stream</button>
+<button class="btn1" id="btn_stop" onclick="stream_stop()">Stop Stream</button>
+<button class="btn1" id="btn_toggle" onclick="sendMessage('TOGGLE')">Toggle</button>
+<button class="btn1" id="btn_stitch" onclick="sendMessage('STITCH')">Stitch</button>
+<button class="btn2" id="btn_record_start" onclick="sendMessage('RECORD_START')">Start Record</button>
+<button class="btn2" id="btn_record_stop" onclick="sendMessage('RECORD_STOP')">Stop Record</button>
+<button class="btn3" id="btn_server_stop" onclick="server_stop()">Stop Server</button>
+<button class="btn3" id="btn_power_down" onclick="confirmPowerDown()">Power Down</button>
 </div>
 
-<textarea id="status" cols="80" rows="10">No messages yet...</textarea>
+<textarea id="status" cols="80" rows="10" hidden="true">No messages yet...</textarea>
 <video width="1200" height="400" id="video" autoplay="true" playsinline="true"></video>
 
 <script>
 function sendMessage(msg) {
   dataChannel.send(encodeURIComponent(JSON.stringify(msg)));
+}
+function toggleStatus() {
+    let el_status = document.getElementById("status");
+    let is_hidden = el_status.hidden;
+    el_status.hidden = !is_hidden;
 }
 </script>
 <script src="client.js"></script>

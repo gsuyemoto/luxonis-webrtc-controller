@@ -107,7 +107,7 @@ function onMessage(evt) {
     document.getElementById('status').value += "\n" + action;
 }
 
-function start() {
+function stream_start() {
     document.getElementById('status').value += "\nStarting stream..";
     
     webrtcInstance = new WebRTC();
@@ -124,7 +124,7 @@ function start() {
     webrtcInstance.start();
 }
 
-function stop() {
+function stream_stop() {
     document.getElementById('status').value += "\nStopping stream..";
 
     if(dataChannel) {
@@ -147,24 +147,12 @@ function sendMessage(msg) {
 
 function confirmPowerDown() {
     if (confirm("Confirm to power down the device!")) {
-        powerDown();
+        sendMessage("SHUTDOWN");
     }
 }
 
-async function startRecording() {
-    document.getElementById('status').value += "\nStart recording...";
-    const response = await fetch("/record_start");
-    console.log(response);
-}
-
-async function stopRecording() {
-    document.getElementById('status').value += "\nStop recording...";
-    const response = await fetch("/record_stop");
-    console.log(response);
-}
-
-async function powerDown() {
-    document.getElementById('status').value += "\nPowering down...";
-    const response = await fetch("/power_down");
+async function server_stop() {
+    document.getElementById('status').value += "\nStopping server...";
+    const response = await fetch("/stop");
     console.log(response);
 }
