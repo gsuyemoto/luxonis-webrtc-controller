@@ -2,7 +2,16 @@ import json
 import urllib.parse
 from json import JSONDecodeError
 import traceback
+import depthai as dai
 import os
+
+# Step size ('W','A','S','D' controls)
+STEP_SIZE = 8
+# Manual exposure/focus/white-balance set step
+EXP_STEP = 500  # us
+ISO_STEP = 50
+LENS_STEP = 3
+WB_STEP = 200
 
 def setup_datachannel(pc, pc_id, app):
     @pc.on("datachannel")
@@ -57,6 +66,43 @@ def setup_datachannel(pc, pc_id, app):
                     channel.send(json.dumps({
                         "type": "SHUTDOWN",
                         "payload": "Shutdown Raspi!"
+                    }))
+                elif data['type'].upper() == 'WHITE_BALANCE_MORE':
+                    wht_balance = app.video_transform.wbManual + WB_STEP 
+                    app.video_transform.wbManual = wht_balance
+                    
+                    ctrl = dai.CameraControl()
+                    ctrl.setManualWhiteBalance(wht_balance)
+
+                    print(f"Increase white balance: {wht_balance}")
+
+                    # app.video_transform.qControl1.send(ctrl)
+                    app.video_transform.qControl2.send(ctrl)
+
+                    channel.send(json.dumps({
+                        "type": "WHITE_BALANCE",
+                        "payload": "White balance set to: " + wht_balance
+                    }))
+                elif data['type'].upper() == 'WHITE_BALANCE_LESS':
+                    wht_balance = app.video_transform.wbManual - WB_STEP 
+                    app.video_transform.wbManual = wht_balance
+
+                    ctrl = dai.CameraControl()
+                    ctrl.setManualWhiteBalance(wht_balance)
+
+                    print(f"Decrease white balance: {wht_balance}")
+
+                    # app.video_transform.qControl1.send(ctrl)
+                    app.video_transform.qControl2.send(ctrl)
+
+                    channel.send(json.dumps({
+                        "type": "WHITE_BALANCE",
+                        "payload": "White balance set to: " + wht_balance
+                    }))
+                elif data['type'].upper() == 'EXPOSURE':
+                    channel.send(json.dumps({
+                        "type": "EXPOSURE",
+                        "payload": "Changing exposure"
                     }))
                 else:
                     channel.send(json.dumps({

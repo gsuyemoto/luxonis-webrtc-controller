@@ -18,6 +18,14 @@ FPS = 30
 # FPS = 28
 # FPS = 20
 
+# Step size ('W','A','S','D' controls)
+STEP_SIZE = 8
+# Manual exposure/focus/white-balance set step
+EXP_STEP = 500  # us
+ISO_STEP = 50
+LENS_STEP = 3
+WB_STEP = 200
+
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, application, pc_id):
         super().__init__()  # don't forget this!
@@ -45,6 +53,7 @@ class VideoRecorder(VideoTransformTrack):
         self.is_recording = False
         self.is_stitch = False
         self.is_toggle = True
+        self.wbManual = 4000
 
         self.frame = np.zeros((PREVIEW_HEIGHT, PREVIEW_WIDTH, 3), np.uint8)
         self.frame[:] = (0, 0, 0)
@@ -54,8 +63,8 @@ class VideoRecorder(VideoTransformTrack):
         self.translateY = 0
         self.start_ts = None
 
-        self.cam1, self.q1, self.recorder1, self.qEncoded1, self.encStream1 = self.create_cam("18443010915D2D1300", "cam1")
-        self.cam2, self.q2, self.recorder2, self.qEncoded2, self.encStream2 = self.create_cam("18443010D13E411300", "cam2")
+        self.cam1, self.q1, self.qControl1, self.recorder1, self.qEncoded1, self.encStream1 = self.create_cam("18443010915D2D1300", "cam1")
+        self.cam2, self.q2, self.qControl2, self.recorder2, self.qEncoded2, self.encStream2 = self.create_cam("18443010D13E411300", "cam2")
 
     def create_cam(self, mxid, name):
         # ---------- Create pipeline
@@ -105,9 +114,9 @@ class VideoRecorder(VideoTransformTrack):
         """
         LINKING -- MAKE SURE THIS PART IS CORRECT! FAILURE IS HARD TO DETECT
         """
-        # XLinkOuts
         outPreview = pipeline.create(dai.node.XLinkOut)
         outEncoded = pipeline.create(dai.node.XLinkOut)
+
         outPreview.setStreamName('preview')
         outEncoded.setStreamName('encoded')
         
@@ -122,7 +131,22 @@ class VideoRecorder(VideoTransformTrack):
         # imageManip.out.link(videoEnc.input)
         cam.video.link(videoEnc.input)
         videoEnc.bitstream.link(outEncoded.input)
+        
+        """
+        CONTROL CAMERA CONFIGURATION SETTINGS (EXPOSURE, WHITE BALANCE, ETC.)
+        """
+        controlIn = pipeline.create(dai.node.XLinkIn)
+        configIn = pipeline.create(dai.node.XLinkIn)
 
+        controlIn.setStreamName('control')
+        configIn.setStreamName('config')
+
+        controlIn.out.link(cam.inputControl)
+        configIn.out.link(cam.inputConfig)
+
+        """
+        GET QUEUES AFTER CREATING DEVICE OBJECT
+        """
         # Get device by ID
         info = dai.DeviceInfo(mxid)
         device = dai.Device(pipeline, info)
@@ -130,14 +154,17 @@ class VideoRecorder(VideoTransformTrack):
         # Output queue
         qOutPreview = device.getOutputQueue(name="preview", maxSize=4, blocking=False)
         qOutEncoded = device.getOutputQueue(name="encoded", maxSize=30, blocking=False)
-        
+
+        controlQueue = device.getInputQueue('control')
+        configQueue = device.getInputQueue('config')
+
         print(f"Camera: {device}")
         print(f"Queue: {qOutPreview}")
         print(f"Recorder: {recorder}")
         print(f"Queue Encoded: {qOutEncoded}")
         print(f"Stream: {stream}")
 
-        return device, qOutPreview, recorder, qOutEncoded, stream
+        return device, qOutPreview, controlQueue, recorder, qOutEncoded, stream
         
     async def get_frame(self):
         if self.is_toggle:

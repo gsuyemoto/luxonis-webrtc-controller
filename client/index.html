@@ -76,6 +76,7 @@
 <button class="btn1" id="btn_status" onclick="toggleStatus()">Status</button>
 <button class="btn1" id="btn_start" onclick="stream_start()">Start Stream</button>
 <button class="btn1" id="btn_stop" onclick="stream_stop()">Stop Stream</button>
+<button class="btn1" id="btn_controls" onclick="toggleControls()">Controls</button>
 <button class="btn1" id="btn_toggle" onclick="sendMessage('TOGGLE')">Toggle</button>
 <button class="btn1" id="btn_stitch" onclick="sendMessage('STITCH')">Stitch</button>
 <button class="btn2" id="btn_record_start" onclick="sendMessage('RECORD_START')">Start Record</button>
@@ -87,12 +88,23 @@
 <textarea id="status" cols="80" rows="10" hidden="true">No messages yet...</textarea>
 <video width="1200" height="400" id="video" autoplay="true" playsinline="true"></video>
 
+<div id="camera_controls" hidden="true">
+    <button class="btn1" id="btn_wht_bal_more" onclick="sendMessage('WHITE_BALANCE_MORE')">White Balance +</button>
+    <button class="btn1" id="btn_wht_bal_less" onclick="sendMessage('WHITE_BALANCE_LESS')">White Balance -</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE')">Exposure</button>
+</div>
+
 <script>
 function sendMessage(msg) {
   dataChannel.send(encodeURIComponent(JSON.stringify(msg)));
 }
 function toggleStatus() {
     let el_status = document.getElementById("status");
+    let is_hidden = el_status.hidden;
+    el_status.hidden = !is_hidden;
+}
+function toggleControls() {
+    let el_status = document.getElementById("camera_controls");
     let is_hidden = el_status.hidden;
     el_status.hidden = !is_hidden;
 }
