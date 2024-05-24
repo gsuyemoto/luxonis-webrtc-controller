@@ -67,6 +67,15 @@ def setup_datachannel(pc, pc_id, app):
                         "type": "SHUTDOWN",
                         "payload": "Shutdown Raspi!"
                     }))
+                elif data['type'].upper() == 'AWB_MODE':
+                    awb_mode = cycle([item for name, item in vars(dai.CameraControl.AutoWhiteBalanceMode).items() if name.isupper()])
+                    awb = next(awb_mode)
+                    ctrl.setAutoWhiteBalanceMode(awb)
+                    
+                    channel.send(json.dumps({
+                        "type": "AWB_MODE",
+                        "payload": "AWB Mode changed to: " + awb
+                    }))
                 elif data['type'].upper() == 'WHITE_BALANCE_MORE':
                     wht_balance = app.video_transform.wbManual + WB_STEP 
                     app.video_transform.wbManual = wht_balance
@@ -99,10 +108,37 @@ def setup_datachannel(pc, pc_id, app):
                         "type": "WHITE_BALANCE",
                         "payload": "White balance set to: " + wht_balance
                     }))
-                elif data['type'].upper() == 'EXPOSURE':
+                elif data['type'].upper() == 'EXPOSURE_MORE':
+                    # expTime = clamp(expTime, 1, 33000)
+                    # sensIso = clamp(sensIso, 100, 1600)
+
+                    expTime = app.video_transform.expTime + EXP_STEP
+                    sensIso = app.video_transform.sensIso
+
+                    print("Setting manual exposure, time: ", expTime, "iso: ", sensIso)
+                    ctrl = dai.CameraControl()
+                    ctrl.setManualExposure(expTime, sensIso)
+                    controlQueue.send(ctrl)
+
                     channel.send(json.dumps({
                         "type": "EXPOSURE",
-                        "payload": "Changing exposure"
+                        "payload": "Set exposure to: " + expTime
+                    }))
+                elif data['type'].upper() == 'EXPOSURE_LESS':
+                    # expTime = clamp(expTime, 1, 33000)
+                    # sensIso = clamp(sensIso, 100, 1600)
+
+                    expTime = app.video_transform.expTime - EXP_STEP
+                    sensIso = app.video_transform.sensIso
+
+                    print("Setting manual exposure, time: ", expTime, "iso: ", sensIso)
+                    ctrl = dai.CameraControl()
+                    ctrl.setManualExposure(expTime, sensIso)
+                    controlQueue.send(ctrl)
+
+                    channel.send(json.dumps({
+                        "type": "EXPOSURE",
+                        "payload": "Set exposure to: " + expTime
                     }))
                 else:
                     channel.send(json.dumps({

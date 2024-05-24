@@ -18,14 +18,6 @@ PREVIEW_HEIGHT = 400
 FPS = 28
 # FPS = 20
 
-# Step size ('W','A','S','D' controls)
-STEP_SIZE = 8
-# Manual exposure/focus/white-balance set step
-EXP_STEP = 500  # us
-ISO_STEP = 50
-LENS_STEP = 3
-WB_STEP = 200
-
 class VideoTransformTrack(VideoStreamTrack):
     def __init__(self, application, pc_id):
         super().__init__()  # don't forget this!
@@ -53,7 +45,11 @@ class VideoRecorder(VideoTransformTrack):
         self.is_recording = False
         self.is_stitch = False
         self.is_toggle = True
+
+        # Camera configurations
         self.wbManual = 4000
+        self.expTime = 20000
+        self.sensIso = 800    
 
         self.frame = np.zeros((PREVIEW_HEIGHT, PREVIEW_WIDTH, 3), np.uint8)
         self.frame[:] = (0, 0, 0)

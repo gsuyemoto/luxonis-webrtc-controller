@@ -89,9 +89,11 @@
 <video width="1200" height="400" id="video" autoplay="true" playsinline="true"></video>
 
 <div id="camera_controls" hidden="true">
+    <button class="btn1" id="btn_awb_mode" onclick="sendMessage('AWB_MODE')">AWB Mode</button>
     <button class="btn1" id="btn_wht_bal_more" onclick="sendMessage('WHITE_BALANCE_MORE')">White Balance +</button>
     <button class="btn1" id="btn_wht_bal_less" onclick="sendMessage('WHITE_BALANCE_LESS')">White Balance -</button>
-    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE')">Exposure</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_MORE')">Exposure +</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_LESS')">Exposure -</button>
 </div>
 
 <script>
