@@ -14,8 +14,8 @@ import sys
 
 PREVIEW_WIDTH = 600
 PREVIEW_HEIGHT = 400
-FPS = 30
-# FPS = 28
+# FPS = 30
+FPS = 28
 # FPS = 20
 
 # Step size ('W','A','S','D' controls)
@@ -82,7 +82,7 @@ class VideoRecorder(VideoTransformTrack):
         cam.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)
 
         # Set up recording
-        recorder = av.open(name + '.mp4', mode='w')
+        recorder = av.open('/media/gary/usb_drive/' + name + '.mp4', mode='w')
         codec = av.CodecContext.create('mjpeg', 'w')
         # codec = av.CodecContext.create('hevc', 'w')
         # stream = recorder.add_stream('hevc')
