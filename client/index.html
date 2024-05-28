@@ -88,12 +88,20 @@
 <textarea id="status" cols="80" rows="10" hidden="true">No messages yet...</textarea>
 <video width="1200" height="400" id="video" autoplay="true" playsinline="true"></video>
 
-<div id="camera_controls" hidden="true">
-    <button class="btn1" id="btn_awb_mode" onclick="sendMessage('AWB_MODE')">AWB Mode</button>
-    <button class="btn1" id="btn_wht_bal_more" onclick="sendMessage('WHITE_BALANCE_MORE')">White Balance +</button>
-    <button class="btn1" id="btn_wht_bal_less" onclick="sendMessage('WHITE_BALANCE_LESS')">White Balance -</button>
-    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_MORE')">Exposure +</button>
-    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_LESS')">Exposure -</button>
+<div class="cam_controls" hidden="true">
+    <button class="btn1" id="btn_awb_mode" onclick="sendMessage('AWB_MODE_CAM1')">AWB Mode</button>
+    <button class="btn1" id="btn_wht_bal_more" onclick="sendMessage('WHITE_BALANCE_MORE_CAM1')">White Balance +</button>
+    <button class="btn1" id="btn_wht_bal_less" onclick="sendMessage('WHITE_BALANCE_LESS_CAM1')">White Balance -</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_MORE_CAM1')">Exposure +</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_LESS_CAM1')">Exposure -</button>
+</div>
+
+<div class="cam_controls" hidden="true">
+    <button class="btn1" id="btn_awb_mode" onclick="sendMessage('AWB_MODE_CAM2')">AWB Mode</button>
+    <button class="btn1" id="btn_wht_bal_more" onclick="sendMessage('WHITE_BALANCE_MORE_CAM2')">White Balance +</button>
+    <button class="btn1" id="btn_wht_bal_less" onclick="sendMessage('WHITE_BALANCE_LESS_CAM2')">White Balance -</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_MORE_CAM2')">Exposure +</button>
+    <button class="btn1" id="btn_exposure" onclick="sendMessage('EXPOSURE_LESS_CAM2')">Exposure -</button>
 </div>
 
 <script>
@@ -106,9 +114,10 @@ function toggleStatus() {
     el_status.hidden = !is_hidden;
 }
 function toggleControls() {
-    let el_status = document.getElementById("camera_controls");
-    let is_hidden = el_status.hidden;
-    el_status.hidden = !is_hidden;
+    let controls = document.getElementsByClassName("cam_controls");
+    for (let ctrl of controls) {
+        ctrl.hidden = !ctrl.hidden;
+    }
 }
 </script>
 <script src="client.js"></script>

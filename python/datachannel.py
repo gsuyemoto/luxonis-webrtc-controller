@@ -1,9 +1,11 @@
 import json
 import urllib.parse
-from json import JSONDecodeError
 import traceback
 import depthai as dai
 import os
+
+from json import JSONDecodeError
+from itertools import cycle
 
 # Step size ('W','A','S','D' controls)
 STEP_SIZE = 8
@@ -70,14 +72,21 @@ def setup_datachannel(pc, pc_id, app):
                 elif data['type'].upper() == 'AWB_MODE':
                     awb_mode = cycle([item for name, item in vars(dai.CameraControl.AutoWhiteBalanceMode).items() if name.isupper()])
                     awb = next(awb_mode)
+
+                    ctrl = dai.CameraControl()
                     ctrl.setAutoWhiteBalanceMode(awb)
                     
                     channel.send(json.dumps({
                         "type": "AWB_MODE",
                         "payload": "AWB Mode changed to: " + awb
                     }))
-                elif data['type'].upper() == 'WHITE_BALANCE_MORE':
-                    wht_balance = app.video_transform.wbManual + WB_STEP 
+                elif 'WHITE_BALANCE' in data['type'].upper():
+                    if 'MORE' in data['type'].upper():
+                        mod = WB_STEP
+                    elif 'LESS' in data['type'].upper():
+                        mod = -WB_STEP
+
+                    wht_balance = app.video_transform.wbManual + mod 
                     app.video_transform.wbManual = wht_balance
                     
                     ctrl = dai.CameraControl()
@@ -85,56 +94,35 @@ def setup_datachannel(pc, pc_id, app):
 
                     print(f"Increase white balance: {wht_balance}")
 
-                    # app.video_transform.qControl1.send(ctrl)
-                    app.video_transform.qControl2.send(ctrl)
+                    if 'CAM1' in data['type'].upper():
+                        app.video_transform.qControl1.send(ctrl)
+                    elif 'CAM2' in data['type'].upper():
+                        app.video_transform.qControl2.send(ctrl)
 
                     channel.send(json.dumps({
                         "type": "WHITE_BALANCE",
                         "payload": "White balance set to: " + wht_balance
                     }))
-                elif data['type'].upper() == 'WHITE_BALANCE_LESS':
-                    wht_balance = app.video_transform.wbManual - WB_STEP 
-                    app.video_transform.wbManual = wht_balance
-
-                    ctrl = dai.CameraControl()
-                    ctrl.setManualWhiteBalance(wht_balance)
-
-                    print(f"Decrease white balance: {wht_balance}")
-
-                    # app.video_transform.qControl1.send(ctrl)
-                    app.video_transform.qControl2.send(ctrl)
-
-                    channel.send(json.dumps({
-                        "type": "WHITE_BALANCE",
-                        "payload": "White balance set to: " + wht_balance
-                    }))
-                elif data['type'].upper() == 'EXPOSURE_MORE':
+                elif 'EXPOSURE' in data['type'].upper():
+                    if 'MORE'  in data['type'].upper():
+                        mod = EXP_STEP
+                    elif 'LESS'  in data['type'].upper():
+                        mod = -EXP_STEP
                     # expTime = clamp(expTime, 1, 33000)
                     # sensIso = clamp(sensIso, 100, 1600)
 
-                    expTime = app.video_transform.expTime + EXP_STEP
+                    expTime = app.video_transform.expTime + mod 
                     sensIso = app.video_transform.sensIso
 
                     print("Setting manual exposure, time: ", expTime, "iso: ", sensIso)
+
                     ctrl = dai.CameraControl()
                     ctrl.setManualExposure(expTime, sensIso)
-                    controlQueue.send(ctrl)
 
-                    channel.send(json.dumps({
-                        "type": "EXPOSURE",
-                        "payload": "Set exposure to: " + expTime
-                    }))
-                elif data['type'].upper() == 'EXPOSURE_LESS':
-                    # expTime = clamp(expTime, 1, 33000)
-                    # sensIso = clamp(sensIso, 100, 1600)
-
-                    expTime = app.video_transform.expTime - EXP_STEP
-                    sensIso = app.video_transform.sensIso
-
-                    print("Setting manual exposure, time: ", expTime, "iso: ", sensIso)
-                    ctrl = dai.CameraControl()
-                    ctrl.setManualExposure(expTime, sensIso)
-                    controlQueue.send(ctrl)
+                    if 'CAM1' in data['type'].upper():
+                        app.video_transform.qControl1.send(ctrl)
+                    elif 'CAM2' in data['type'].upper():
+                        app.video_transform.qControl2.send(ctrl)
 
                     channel.send(json.dumps({
                         "type": "EXPOSURE",
